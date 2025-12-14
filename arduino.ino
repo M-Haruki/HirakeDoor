@@ -366,6 +366,67 @@ public:
   }
 };
 
+struct ManualControlConf
+{
+  int pinA;
+  int pinB;
+};
+class ManualControl
+{
+  // プルアップを介すため、LOWがON、HIGHがOFFになる
+private:
+  int pinA;
+  int pinB;
+
+public:
+  enum Status
+  {
+    Front,
+    Back,
+    Stop,
+  };
+
+  ManualControl(const ManualControlConf &conf)
+  {
+    pinA = conf.pinA;
+    pinB = conf.pinB;
+    pinMode(pinA, INPUT_PULLUP);
+    pinMode(pinB, INPUT_PULLUP);
+  }
+
+  bool isManualMode()
+  {
+    int stateA = digitalRead(pinA);
+    int stateB = digitalRead(pinB);
+    if (stateA == HIGH && stateB == HIGH)
+    {
+      return false;
+    }
+    else
+    {
+      return true;
+    }
+  }
+
+  ManualControl::Status status()
+  {
+    int stateA = digitalRead(pinA);
+    int stateB = digitalRead(pinB);
+    if (stateA == LOW && stateB == LOW)
+    {
+      return ManualControl::Stop;
+    }
+    else if (stateA == LOW && stateB == HIGH)
+    {
+      return ManualControl::Front;
+    }
+    else if (stateA == HIGH && stateB == LOW)
+    {
+      return ManualControl::Back;
+    }
+  }
+};
+
 // ## enum,プロトタイプ宣言(ないとコンパイルエラーになる)
 enum MainMode
 {
@@ -373,6 +434,7 @@ enum MainMode
   Opening,
   Open,
   Closing,
+  Manual,
 };
 void changeMode(MainMode newMode);
 
@@ -390,19 +452,26 @@ DistanceSensorConf distanceConf = {
     .pinEcho = 3,
     .sampleTimes = 10, // 1度の距離算出のためのセンサー測定回数
 };
+ManualControlConf manualConf = {
+    .pinA = 6,
+    .pinB = 7,
+};
 constexpr unsigned long sensorMeasureInterval_us = 100000; // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
 constexpr unsigned int detectDistanceMin_cm = 5;           // センサー検出距離下限(cm)
 constexpr unsigned int detectDistanceMax_cm = 30;          // センサー検出距離上限(cm)
 constexpr unsigned long motorStepDuration_us = 6000;       // モーター1/4ステップ間隔(μs)
 constexpr unsigned long openCountLimit_ms = 1000;          // ドア全開時間(ms)
+bool enableManualMode = false;                             // マニュアル制御モード有効フラグ
 
 // ## インスタンス生成,グローバル変数定義
 SteppingMotor motor(motorConf);
 DistanceSensor distanceA(distanceConf);
+ManualControl manual(manualConf);
 unsigned long lastTrigTime_us = 0;
 unsigned long lastStepTime_us = 0;
 unsigned long openCount = 0;
 MainMode mode = Close;
+MainMode lastMode;
 
 // ## 関数定義
 void changeMode(MainMode newMode)
@@ -428,6 +497,9 @@ void changeMode(MainMode newMode)
   case Close:
     Serial.println("mode:Close");
     break;
+  case Manual:
+    Serial.println("mode:Manual");
+    break;
   }
 }
 
@@ -437,6 +509,7 @@ void setup()
   Serial.begin(9600);
   delay(1000);
   Serial.println("--Initialized--");
+  motor.powerStop();
 }
 
 // ## Arduino標準ループ処理
@@ -503,5 +576,37 @@ void loop()
       }
     }
     break;
+  case Manual:
+    if (now_us - lastStepTime_us >= motorStepDuration_us)
+    {
+      lastStepTime_us = now_us;
+      ManualControl::Status status = manual.status();
+      switch (status)
+      {
+      case ManualControl::Front:
+        motor.step(SteppingMotor::Front);
+        break;
+      case ManualControl::Back:
+        motor.step(SteppingMotor::Back);
+        break;
+      case ManualControl::Stop:
+        motor.powerStop();
+        break;
+      }
+    }
+    break;
+  }
+  // マニュアル制御確認
+  if (enableManualMode)
+  {
+    if (manual.isManualMode() && mode != Manual)
+    {
+      lastMode = mode;
+      changeMode(Manual);
+    }
+    else if (!manual.isManualMode() && mode == Manual)
+    {
+      changeMode(lastMode);
+    }
   }
 }
