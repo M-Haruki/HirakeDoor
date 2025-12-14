@@ -10,6 +10,7 @@ struct SteppingMotorConf
 
 class SteppingMotor
 {
+private:
   int count = 3; // 0~3
   int pinA1;
   int pinA2;
@@ -17,6 +18,31 @@ class SteppingMotor
   int pinB2;
   int doorPosition = 0;
   int doorPositionLimit;
+
+  void io(int pin1, int pin2, int state)
+  {
+    switch (state)
+    {
+    case -1:
+      digitalWrite(pin1, LOW);
+      digitalWrite(pin2, HIGH);
+      break;
+    case 1:
+      digitalWrite(pin1, HIGH);
+      digitalWrite(pin2, LOW);
+      break;
+    default:
+      digitalWrite(pin1, LOW);
+      digitalWrite(pin2, LOW);
+      break;
+    }
+  }
+
+  void move(int a, int b)
+  { // -1 or 0 or 1
+    io(pinA1, pinA2, a);
+    io(pinB1, pinB2, b);
+  }
 
 public:
   enum Direction
@@ -132,32 +158,6 @@ public:
   {
     move(0, 0);
   }
-
-private:
-  void io(int pin1, int pin2, int state)
-  {
-    switch (state)
-    {
-    case -1:
-      digitalWrite(pin1, LOW);
-      digitalWrite(pin2, HIGH);
-      break;
-    case 1:
-      digitalWrite(pin1, HIGH);
-      digitalWrite(pin2, LOW);
-      break;
-    default:
-      digitalWrite(pin1, LOW);
-      digitalWrite(pin2, LOW);
-      break;
-    }
-  }
-
-  void move(int a, int b)
-  { // -1 or 0 or 1
-    io(pinA1, pinA2, a);
-    io(pinB1, pinB2, b);
-  }
 };
 
 struct DistanceSensorConf
@@ -169,6 +169,7 @@ struct DistanceSensorConf
 
 class DistanceSensor
 {
+private:
   int pinTrig;
   int pinEcho;
 
@@ -195,68 +196,6 @@ class DistanceSensor
   };
   SensorMode sensorMode = WaitStart;
 
-public:
-  DistanceSensor(const DistanceSensorConf &conf)
-  {
-    pinTrig = conf.pinTrig;
-    pinEcho = conf.pinEcho;
-    pinMode(pinTrig, OUTPUT);
-    pinMode(pinEcho, INPUT);
-    sampleTimes = conf.sampleTimes;
-  }
-
-  void clock()
-  {
-    switch (sensorMode)
-    {
-    case Trigger:
-      trigger();
-      break;
-    case Measuring:
-      bool isEnd = captureEcho();
-      if (isEnd)
-      {
-        samples[sampleCount] = getDistance();
-        sensorMode = WaitNextMeasure;
-        sampleCount += 1;
-        if (sampleCount == sampleTimes)
-        {
-          // 平均を計算
-          result = filter();
-          sensorMode = Completed;
-        }
-        else
-        {
-          startMeasure();
-        }
-      }
-      break;
-    }
-  }
-
-  void start()
-  {
-    if (sensorMode == WaitStart)
-    {
-      sampleCount = 0;
-      startMeasure();
-    }
-  }
-
-  float getResult()
-  {
-    if (sensorMode == Completed)
-    {
-      sensorMode = WaitStart;
-      return result;
-    }
-    else
-    {
-      return -1;
-    }
-  }
-
-private:
   void startMeasure()
   {
     lastEchoState = LOW;
@@ -363,6 +302,67 @@ private:
     if (count == 0)
       return -1; // 全て外れ値 → 失敗
     return sum / count;
+  }
+
+public:
+  DistanceSensor(const DistanceSensorConf &conf)
+  {
+    pinTrig = conf.pinTrig;
+    pinEcho = conf.pinEcho;
+    pinMode(pinTrig, OUTPUT);
+    pinMode(pinEcho, INPUT);
+    sampleTimes = conf.sampleTimes;
+  }
+
+  void clock()
+  {
+    switch (sensorMode)
+    {
+    case Trigger:
+      trigger();
+      break;
+    case Measuring:
+      bool isEnd = captureEcho();
+      if (isEnd)
+      {
+        samples[sampleCount] = getDistance();
+        sensorMode = WaitNextMeasure;
+        sampleCount += 1;
+        if (sampleCount == sampleTimes)
+        {
+          // 平均を計算
+          result = filter();
+          sensorMode = Completed;
+        }
+        else
+        {
+          startMeasure();
+        }
+      }
+      break;
+    }
+  }
+
+  void start()
+  {
+    if (sensorMode == WaitStart)
+    {
+      sampleCount = 0;
+      startMeasure();
+    }
+  }
+
+  float getResult()
+  {
+    if (sensorMode == Completed)
+    {
+      sensorMode = WaitStart;
+      return result;
+    }
+    else
+    {
+      return -1;
+    }
   }
 };
 
