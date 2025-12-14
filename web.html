@@ -1,0 +1,231 @@
+<!-- 参考 https://uepon.hatenadiary.com/entry/2025/03/24/131123 -->
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLE Test</title>
+  <meta name="description" content="Web Bluetooth を用いた UART テスト">
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 1.2rem;
+      line-height: 1.5;
+    }
+
+    h1 {
+      margin-bottom: .5rem;
+    }
+
+    fieldset {
+      border: 1px solid #ccc;
+      padding: .8rem 1rem;
+      margin-bottom: 1rem;
+    }
+
+    legend {
+      font-weight: 600;
+    }
+
+    button {
+      margin: .25rem .3rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      font-family: monospace;
+      resize: vertical;
+    }
+
+    #receiveArea {
+      min-height: 60px;
+    }
+
+    .row {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+
+    .inline {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .status {
+      font-size: .9rem;
+      color: #555;
+    }
+
+    .disabled {
+      opacity: .5;
+      pointer-events: none;
+    }
+  </style>
+  <script>
+    'use strict';
+
+    const UUID = Object.freeze({
+      SERVICE: '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+      RX: '6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+      TX: '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
+    });
+
+    let el; // DOMキャッシュはDOMContentLoaded後に取得
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    const bleUart = {
+      device: null,
+      rxChar: null,
+      txChar: null,
+      connecting: false,
+      async connect() {
+        if (this.connecting) return;
+        this.connecting = true;
+        log('Requesting Bluetooth Device...');
+        updateStatus('検索中');
+        try {
+          const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [UUID.SERVICE] }, { name: 'HirakeDoma_RPiPico' }],
+            optionalServices: [UUID.SERVICE]
+          });
+          this.device = device;
+          log(`Device chosen: ${device.name || '(no name)'}`);
+          device.addEventListener('gattserverdisconnected', onDisconnected);
+          const server = await device.gatt.connect();
+          const service = await server.getPrimaryService(UUID.SERVICE);
+          this.rxChar = await service.getCharacteristic(UUID.RX);
+          // this.txChar = await service.getCharacteristic(UUID.TX);
+          // await this.txChar.startNotifications();
+          // this.txChar.addEventListener('characteristicvaluechanged', handleNotification);
+          enableControls(true);
+          updateStatus('接続済み');
+          log('Connected. Notifications started.');
+        } catch (err) {
+          log(`Connect error: ${err.message}`);
+          updateStatus('接続失敗');
+          this.device = null; this.rxChar = null; this.txChar = null;
+          enableControls(false);
+        } finally {
+          this.connecting = false;
+        }
+      },
+      disconnect() {
+        if (this.device && this.device.gatt.connected) {
+          this.device.gatt.disconnect();
+        } else {
+          log('No active connection to disconnect.');
+        }
+      },
+      async send(text) {
+        if (!this.rxChar) { log('RX Characteristic not available.'); return; }
+        if (!text) { log('送信文字列が空です。'); return; }
+        try {
+          await this.rxChar.writeValue(encoder.encode(text));
+          log(`Sent: ${text}`);
+        } catch (err) { log(`Send error: ${err.message}`); }
+      }
+    };
+
+    // function handleNotification(e) {
+    //   const value = e.target.value;
+    //   const text = decoder.decode(value);
+    //   el.receiveArea.value += text + '\n';
+    //   el.receiveArea.scrollTop = el.receiveArea.scrollHeight;
+    //   log(`Received: ${text}`);
+    // }
+    function onDisconnected(evt) {
+      const name = evt.target?.name || '(no name)';
+      log(`Device ${name} disconnected.`);
+      updateStatus('未接続');
+      enableControls(false);
+    }
+    function log(message) {
+      console.log(message);
+      el.logArea.value += message + '\n';
+      el.logArea.scrollTop = el.logArea.scrollHeight;
+    }
+    function updateStatus(text) { el.status.textContent = text; }
+    function enableControls(connected) {
+      el.btnConnect.disabled = connected;
+      el.btnDisconnect.disabled = !connected;
+      el.btnSend.disabled = !connected;
+      el.sendInput.disabled = !connected;
+      el.shortcuts().forEach(b => b.disabled = !connected);
+      // if (!connected) el.receiveArea.value = '';
+    }
+    function bindEvents() {
+      el.btnConnect.addEventListener('click', () => bleUart.connect());
+      el.btnDisconnect.addEventListener('click', () => bleUart.disconnect());
+      el.btnSend.addEventListener('click', () => bleUart.send(el.sendInput.value.trim()));
+      el.sendInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); bleUart.send(el.sendInput.value.trim()); }
+      });
+      el.shortcuts().forEach(btn => btn.addEventListener('click', () => bleUart.send(btn.dataset.msg)));
+    }
+    function init() {
+      el = {
+        status: document.getElementById('status'),
+        btnConnect: document.getElementById('btnConnect'),
+        btnDisconnect: document.getElementById('btnDisconnect'),
+        btnSend: document.getElementById('btnSend'),
+        shortcuts: () => Array.from(document.querySelectorAll('.shortcut')),
+        sendInput: document.getElementById('sendInput'),
+        // receiveArea: document.getElementById('receiveArea'),
+        logArea: document.getElementById('logArea')
+      };
+      if (!('bluetooth' in navigator)) { updateStatus('未対応ブラウザ'); log('This browser does not support Web Bluetooth API.'); return; }
+      bindEvents();
+      enableControls(false);
+      log('Ready. Click Connect to start.');
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</head>
+
+<body>
+  <h1>BLE Test (RPi Pico)</h1>
+  <p class="status" id="status">未接続</p>
+
+  <fieldset>
+    <legend>接続</legend>
+    <div class="row">
+      <button id="btnConnect" type="button">Connect</button>
+      <button id="btnDisconnect" type="button" disabled>Disconnect</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>送信</legend>
+    <div class="inline" style="margin-bottom:.4rem;">
+      <label for="sendInput">文字列:</label>
+      <input type="text" id="sendInput" placeholder="メッセージ" size="28" autocomplete="off">
+      <button id="btnSend" type="button" disabled>Send</button>
+    </div>
+    <div class="row">
+      <button class="shortcut" data-msg="front" disabled>Front</button>
+      <button class="shortcut" data-msg="back" disabled>Back</button>
+      <button class="shortcut" data-msg="stop" disabled>PowerStop</button>
+      <button class="shortcut" data-msg="off" disabled>OFF</button>
+    </div>
+  </fieldset>
+
+  <!-- <fieldset>
+    <legend>受信</legend>
+    <textarea id="receiveArea" readonly aria-label="受信したメッセージ"></textarea>
+  </fieldset> -->
+
+  <fieldset>
+    <legend>ログ</legend>
+    <textarea id="logArea" readonly aria-label="操作ログ"></textarea>
+  </fieldset>
+
+
+</body>
+
+</html>
