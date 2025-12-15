@@ -300,7 +300,9 @@ private:
     }
     // 平均値計算
     if (count == 0)
+    {
       return -1; // 全て外れ値 → 失敗
+    }
     return sum / count;
   }
 
@@ -447,9 +449,14 @@ SteppingMotorConf motorConf = {
     .pinB2 = 13,
     .doorPositionLimit = 500, // ドア全開位置の1/4ステップ数
 };
-DistanceSensorConf distanceConf = {
+DistanceSensorConf distanceAConf = {
     .pinTrig = 2,
     .pinEcho = 3,
+    .sampleTimes = 10, // 1度の距離算出のためのセンサー測定回数
+};
+DistanceSensorConf distanceBConf = {
+    .pinTrig = 4,
+    .pinEcho = 5,
     .sampleTimes = 10, // 1度の距離算出のためのセンサー測定回数
 };
 ManualControlConf manualConf = {
@@ -465,13 +472,15 @@ bool enableManualMode = false;                             // マニュアル制
 
 // ## インスタンス生成,グローバル変数定義
 SteppingMotor motor(motorConf);
-DistanceSensor distanceA(distanceConf);
+DistanceSensor distanceA(distanceAConf);
+DistanceSensor distanceB(distanceBConf);
 ManualControl manual(manualConf);
 unsigned long lastTrigTime_us = 0;
 unsigned long lastStepTime_us = 0;
 unsigned long openCount = 0;
 MainMode mode = Close;
 MainMode lastMode;
+int usingSensor = 0; // 0:A, 1:B
 
 // ## 関数定義
 void changeMode(MainMode newMode)
@@ -517,15 +526,39 @@ void loop()
 {
   unsigned long now_us = micros();
   distanceA.clock();
+  distanceB.clock();
+  // 距離センサーによる検出処理
   if (mode == Close || mode == Closing || mode == Open)
   {
-    // 距離センサーのエコー信号を監視・取得
+    // センサー起動
     if (now_us - lastTrigTime_us >= sensorMeasureInterval_us)
     {
       lastTrigTime_us = now_us;
-      distanceA.start();
+      switch (usingSensor)
+      {
+      case 0:
+        usingSensor = 1;
+        distanceA.start();
+        break;
+      case 1:
+        usingSensor = 0;
+        distanceB.start();
+        break;
+      }
     }
-    float result = distanceA.getResult();
+    // 結果取得
+    float resultA = distanceA.getResult();
+    float resultB = distanceB.getResult();
+    float result = -1;
+    if (resultA >= 0)
+    {
+      result = resultA;
+    }
+    else if (resultB >= 0)
+    {
+      result = resultB;
+    }
+    // 検出判定
     if (result >= detectDistanceMin_cm && result <= detectDistanceMax_cm)
     {
       Serial.println("distanceDetect:" + String(result));
