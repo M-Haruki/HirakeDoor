@@ -549,15 +549,7 @@ void loop()
     // 結果取得
     float resultA = distanceA.getResult();
     float resultB = distanceB.getResult();
-    float result = -1;
-    if (resultA >= 0)
-    {
-      result = resultA;
-    }
-    else if (resultB >= 0)
-    {
-      result = resultB;
-    }
+    float result = (resultA >= 0) ? resultA : resultB;
     // 検出判定
     if (result >= detectDistanceMin_cm && result <= detectDistanceMax_cm)
     {
