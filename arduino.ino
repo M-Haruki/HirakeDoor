@@ -463,12 +463,12 @@ ManualControlConf manualConf = {
     .pinA = 6,
     .pinB = 7,
 };
-constexpr unsigned long sensorMeasureInterval_us = 100000; // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
-constexpr unsigned int detectDistanceMin_cm = 5;           // センサー検出距離下限(cm)
-constexpr unsigned int detectDistanceMax_cm = 30;          // センサー検出距離上限(cm)
-constexpr unsigned long motorStepDuration_us = 6000;       // モーター1/4ステップ間隔(μs)
-constexpr unsigned long openCountLimit_ms = 1000;          // ドア全開時間(ms)
-bool enableManualMode = false;                             // マニュアル制御モード有効フラグ
+constexpr unsigned long sensorMeasureInterval_us = 50000; // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
+constexpr unsigned int detectDistanceMin_cm = 5;          // センサー検出距離下限(cm)
+constexpr unsigned int detectDistanceMax_cm = 30;         // センサー検出距離上限(cm)
+constexpr unsigned long motorStepDuration_us = 6000;      // モーター1/4ステップ間隔(μs)
+constexpr unsigned long openCountLimit_ms = 1000;         // ドア全開時間(ms)
+bool enableManualMode = false;                            // マニュアル制御モード有効フラグ
 
 // ## インスタンス生成,グローバル変数定義
 SteppingMotor motor(motorConf);
