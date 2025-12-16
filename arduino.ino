@@ -165,6 +165,7 @@ struct DistanceSensorConf
   int pinTrig;
   int pinEcho;
   int sampleTimes;
+  float sampleTolerance;
 };
 
 class DistanceSensor
@@ -185,6 +186,7 @@ private:
   int sampleCount;
   float samples[sampleTimesMax];
   float result;
+  float sampleTolerance; // 外れ値判定用の許容範囲(中央値に対する割合)
 
   enum SensorMode
   {
@@ -292,7 +294,7 @@ private:
     int count = 0;
     for (size_t i = 0; i < sampleTimes; i++)
     {
-      if (fabs(samples[i] - median) < median * 0.15)
+      if (fabs(samples[i] - median) < median * sampleTolerance)
       {
         sum += samples[i];
         count++;
@@ -314,6 +316,7 @@ public:
     pinMode(pinTrig, OUTPUT);
     pinMode(pinEcho, INPUT);
     sampleTimes = conf.sampleTimes;
+    sampleTolerance = conf.sampleTolerance;
   }
 
   void clock()
@@ -452,12 +455,14 @@ SteppingMotorConf motorConf = {
 DistanceSensorConf distanceAConf = {
     .pinTrig = 2,
     .pinEcho = 3,
-    .sampleTimes = 10, // 1度の距離算出のためのセンサー測定回数
+    .sampleTimes = 10,       // 1度の距離算出のためのセンサー測定回数
+    .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
 };
 DistanceSensorConf distanceBConf = {
     .pinTrig = 4,
     .pinEcho = 5,
-    .sampleTimes = 10, // 1度の距離算出のためのセンサー測定回数
+    .sampleTimes = 10,       // 1度の距離算出のためのセンサー測定回数
+    .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
 };
 ManualControlConf manualConf = {
     .pinA = 6,
