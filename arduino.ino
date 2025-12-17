@@ -124,13 +124,13 @@ public:
       move(1, 1);
       break;
     case 1:
-      move(-1, 1);
+      move(1, -1);
       break;
     case 2:
       move(-1, -1);
       break;
     case 3:
-      move(1, -1);
+      move(-1, 1);
       break;
     }
   }
@@ -143,13 +143,13 @@ public:
       move(1, 1);
       break;
     case 1:
-      move(-1, 1);
+      move(1, -1);
       break;
     case 2:
       move(-1, -1);
       break;
     case 3:
-      move(1, -1);
+      move(-1, 1);
       break;
     }
   }
@@ -441,16 +441,15 @@ enum MainMode
   Closing,
   Manual,
 };
-void changeMode(MainMode newMode);
+void changeMode(MainMode newMode, SteppingMotor &motor);
 
 // ## 変数定義(ユーザー変更可能エリア)
 SteppingMotorConf motorConf = {
-    // 17, 14, 15, 16, 1600
-    .pinA1 = 10,
-    .pinA2 = 11,
-    .pinB1 = 12,
-    .pinB2 = 13,
-    .doorPositionLimit = 500, // ドア全開位置の1/4ステップ数
+    .pinA1 = 17,
+    .pinA2 = 14,
+    .pinB1 = 15,
+    .pinB2 = 16,
+    .doorPositionLimit = 1600, // ドア全開位置の1/4ステップ数
 };
 DistanceSensorConf distanceAConf = {
     .pinTrig = 2,
@@ -459,21 +458,21 @@ DistanceSensorConf distanceAConf = {
     .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
 };
 DistanceSensorConf distanceBConf = {
-    .pinTrig = 4,
-    .pinEcho = 5,
+    .pinTrig = 8,
+    .pinEcho = 9,
     .sampleTimes = 10,       // 1度の距離算出のためのセンサー測定回数
     .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
 };
 ManualControlConf manualConf = {
-    .pinA = 6,
-    .pinB = 7,
+    .pinA = 11,
+    .pinB = 12,
 };
 constexpr unsigned long sensorMeasureInterval_us = 50000; // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
 constexpr unsigned int detectDistanceMin_cm = 5;          // センサー検出距離下限(cm)
-constexpr unsigned int detectDistanceMax_cm = 30;         // センサー検出距離上限(cm)
+constexpr unsigned int detectDistanceMax_cm = 50;         // センサー検出距離上限(cm)
 constexpr unsigned long motorStepDuration_us = 6000;      // モーター1/4ステップ間隔(μs)
 constexpr unsigned long openCountLimit_ms = 1000;         // ドア全開時間(ms)
-bool enableManualMode = false;                            // マニュアル制御モード有効フラグ
+bool enableManualMode = true;                             // マニュアル制御モード有効フラグ
 
 // ## インスタンス生成,グローバル変数定義
 SteppingMotor motor(motorConf);
@@ -488,12 +487,16 @@ MainMode lastMode;
 int usingSensor = 0; // 0:A, 1:B
 
 // ## 関数定義
-void changeMode(MainMode newMode)
+void changeMode(MainMode newMode, SteppingMotor &motor)
 {
   switch (newMode)
   {
   case Open:
     openCount = openCountLimit_ms;
+    motor.freeStop();
+    break;
+  case Close:
+    motor.freeStop();
     break;
   }
   mode = newMode;
@@ -561,7 +564,7 @@ void loop()
       Serial.println("distanceDetect:" + String(result));
       if (mode != Open)
       {
-        changeMode(Opening);
+        changeMode(Opening, motor);
       }
       else
       {
@@ -580,7 +583,7 @@ void loop()
       bool isEnd = motor.stepWithLimit(SteppingMotor::Front);
       if (isEnd)
       {
-        changeMode(Open);
+        changeMode(Open, motor);
       }
     }
     break;
@@ -591,7 +594,7 @@ void loop()
       bool isEnd = motor.stepWithLimit(SteppingMotor::Back);
       if (isEnd)
       {
-        changeMode(Close);
+        changeMode(Close, motor);
       }
     }
     break;
@@ -602,7 +605,7 @@ void loop()
       openCount -= 1;
       if (openCount == 0)
       {
-        changeMode(Closing);
+        changeMode(Closing, motor);
       }
     }
     break;
@@ -632,11 +635,11 @@ void loop()
     if (manual.isManualMode() && mode != Manual)
     {
       lastMode = mode;
-      changeMode(Manual);
+      changeMode(Manual, motor);
     }
     else if (!manual.isManualMode() && mode == Manual)
     {
-      changeMode(lastMode);
+      changeMode(lastMode, motor);
     }
   }
 }
