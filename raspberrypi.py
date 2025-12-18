@@ -29,8 +29,10 @@ rx_char = aioble.Characteristic(
 aioble.register_services(uart_service)  # GATTサービスを登録
 
 led = Pin("LED", Pin.OUT)  # LED端子をledとして出力に設定
-out_a = Pin(16, Pin.OUT)  # 受信ポート
-out_b = Pin(17, Pin.OUT)  # 受信ポート
+out_a = Pin(16, Pin.OUT)
+out_b = Pin(17, Pin.OUT)
+out_a.value(0)  # 初期状態はOFF
+out_b.value(0)
 # sw_main = Pin(14, Pin.IN, Pin.PULL_DOWN)  # 送信ボタン
 sw_reset = Pin(15, Pin.IN, Pin.PULL_DOWN)  # 接続解除用ボタン
 
@@ -135,6 +137,8 @@ async def ble_peripheral_loop():
         except Exception as e:
             print("Advertise:", repr(e))
 
+        out_a.value(0)
+        out_b.value(0)
         await asyncio.sleep_ms(200)
 
 
