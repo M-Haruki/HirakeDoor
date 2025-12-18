@@ -529,7 +529,6 @@ unsigned long lastTrigTime_us = 0;
 unsigned long lastStepTime_us = 0;
 unsigned long openCount = 0;
 MainMode mode = Close;
-MainMode lastMode;
 int usingSensor = 0; // 0:A, 1:B
 
 // ## 関数定義
@@ -680,7 +679,7 @@ void loop()
       }
       break;
     case ManualControl::Stop:
-      motor.hardStop();
+      motor.softStop();
       break;
     }
     break;
@@ -690,12 +689,11 @@ void loop()
   {
     if (manual.isManualMode() && mode != Manual)
     {
-      lastMode = mode;
       changeMode(Manual);
     }
     else if (!manual.isManualMode() && mode == Manual)
     {
-      changeMode(lastMode);
+      changeMode(Close);
     }
   }
 }
