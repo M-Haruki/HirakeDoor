@@ -185,6 +185,7 @@ struct DistanceSensorConf
   int pinLed;
   int sampleTimes;
   float sampleTolerance;
+  unsigned long ledOnDuration_us;
 };
 
 class DistanceSensor
@@ -207,6 +208,9 @@ private:
   float samples[sampleTimesMax];
   float result;
   float sampleTolerance; // 外れ値判定用の許容範囲(中央値に対する割合)
+
+  unsigned long ledOnDuration_us; // LED点灯時間(μs)
+  unsigned long ledOnTime_us = 0; // LED点灯時間管理用
 
   enum SensorMode
   {
@@ -339,19 +343,13 @@ public:
     pinMode(pinLed, OUTPUT);
     sampleTimes = conf.sampleTimes;
     sampleTolerance = conf.sampleTolerance;
+    ledOnDuration_us = conf.ledOnDuration_us;
   }
 
-  void led(bool status)
+  void ledOn()
   {
-    switch (status)
-    {
-    case true:
-      digitalWrite(pinLed, HIGH);
-      break;
-    case false:
-      digitalWrite(pinLed, LOW);
-      break;
-    }
+    digitalWrite(pinLed, HIGH);
+    ledOnTime_us = micros();
   }
 
   void clock()
@@ -380,6 +378,12 @@ public:
         }
       }
       break;
+    }
+    // LED消灯管理
+    if (ledOnTime_us != 0 && micros() - ledOnTime_us >= ledOnDuration_us)
+    {
+      digitalWrite(pinLed, LOW);
+      ledOnTime_us = 0;
     }
   }
 
@@ -476,11 +480,10 @@ enum MainMode
   Closing,
   Manual,
 };
-void changeMode(MainMode newMode, DistanceSensor &sensorA, DistanceSensor &sensorB);
+void changeMode(MainMode newMode);
 
 // ## 変数定義(ユーザー変更可能エリア)
 SteppingMotorConf motorConf = {
-    // 17, 14, 15, 16, 1600
     .pinA1 = 17,
     .pinA2 = 14,
     .pinB1 = 15,
@@ -493,15 +496,17 @@ DistanceSensorConf distanceAConf = {
     .pinTrig = 2,
     .pinEcho = 3,
     .pinLed = 4,
-    .sampleTimes = 10,       // 1度の距離算出のためのセンサー測定回数
-    .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
+    .sampleTimes = 10,          // 1度の距離算出のためのセンサー測定回数
+    .sampleTolerance = 0.15,    // 外れ値判定用の許容範囲(中央値に対する割合)
+    .ledOnDuration_us = 100000, // LED点灯時間(μs)
 };
 DistanceSensorConf distanceBConf = {
     .pinTrig = 8,
     .pinEcho = 9,
     .pinLed = 10,
-    .sampleTimes = 10,       // 1度の距離算出のためのセンサー測定回数
-    .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
+    .sampleTimes = 10,          // 1度の距離算出のためのセンサー測定回数
+    .sampleTolerance = 0.15,    // 外れ値判定用の許容範囲(中央値に対する割合)
+    .ledOnDuration_us = 100000, // LED点灯時間(μs)
 };
 ManualControlConf manualConf = {
     .pinA = 11,
@@ -528,27 +533,13 @@ MainMode lastMode;
 int usingSensor = 0; // 0:A, 1:B
 
 // ## 関数定義
-void changeMode(MainMode newMode, DistanceSensor &sensorA, DistanceSensor &sensorB)
+void changeMode(MainMode newMode)
 
 {
   switch (newMode)
   {
   case Open:
     openCount = openCountLimit_ms;
-    sensorA.led(false);
-    sensorB.led(false);
-    break;
-  case Opening:
-    sensorA.led(true);
-    sensorB.led(true);
-    break;
-  case Close:
-    sensorA.led(false);
-    sensorB.led(false);
-    break;
-  case Closing:
-    sensorA.led(true);
-    sensorB.led(true);
     break;
   }
   mode = newMode;
@@ -614,10 +605,18 @@ void loop()
     // 検出判定
     if (result >= detectDistanceMin_cm && result <= detectDistanceMax_cm)
     {
+      if (resultA >= 0)
+      {
+        distanceA.ledOn();
+      }
+      else
+      {
+        distanceB.ledOn();
+      }
       Serial.println("distanceDetect:" + String(result));
       if (mode != Open)
       {
-        changeMode(Opening, distanceA, distanceB);
+        changeMode(Opening);
       }
       else
       {
@@ -636,7 +635,7 @@ void loop()
       bool isEnd = motor.stepWithLimit(SteppingMotor::Front);
       if (isEnd)
       {
-        changeMode(Open, distanceA, distanceB);
+        changeMode(Open);
       }
     }
     break;
@@ -647,7 +646,7 @@ void loop()
       bool isEnd = motor.stepWithLimit(SteppingMotor::Back);
       if (isEnd)
       {
-        changeMode(Close, distanceA, distanceB);
+        changeMode(Close);
       }
     }
     break;
@@ -658,7 +657,7 @@ void loop()
       openCount -= 1;
       if (openCount == 0)
       {
-        changeMode(Closing, distanceA, distanceB);
+        changeMode(Closing);
       }
     }
     break;
@@ -692,11 +691,11 @@ void loop()
     if (manual.isManualMode() && mode != Manual)
     {
       lastMode = mode;
-      changeMode(Manual, distanceA, distanceB);
+      changeMode(Manual);
     }
     else if (!manual.isManualMode() && mode == Manual)
     {
-      changeMode(lastMode, distanceA, distanceB);
+      changeMode(lastMode);
     }
   }
 }
