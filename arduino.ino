@@ -88,7 +88,7 @@ public:
       doorPosition += frontStep;
       if (doorPosition >= doorPositionLimit)
       {
-        freeStop();
+        softStop();
         return true;
       }
       else
@@ -102,7 +102,7 @@ public:
       doorPosition += backStep;
       if (doorPosition <= 0)
       {
-        freeStop();
+        softStop();
         return true;
       }
       else
@@ -153,7 +153,7 @@ public:
     }
   }
 
-  void powerStop()
+  void hardStop()
   {
     switch (count)
     {
@@ -172,7 +172,7 @@ public:
     }
   }
 
-  void freeStop()
+  void softStop()
   {
     move(0, 0);
   }
@@ -578,7 +578,7 @@ void setup()
   Serial.begin(9600);
   delay(1000);
   Serial.println("--Initialized--");
-  motor.freeStop();
+  motor.softStop();
 }
 
 // ## Arduino標準ループ処理
@@ -681,7 +681,7 @@ void loop()
       }
       break;
     case ManualControl::Stop:
-      motor.powerStop();
+      motor.hardStop();
       break;
     }
     break;
