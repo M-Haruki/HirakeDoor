@@ -88,6 +88,7 @@ public:
       doorPosition += frontStep;
       if (doorPosition >= doorPositionLimit)
       {
+        freeStop();
         return true;
       }
       else
@@ -101,6 +102,7 @@ public:
       doorPosition += backStep;
       if (doorPosition <= 0)
       {
+        freeStop();
         return true;
       }
       else
@@ -474,7 +476,7 @@ enum MainMode
   Closing,
   Manual,
 };
-void changeMode(MainMode newMode, SteppingMotor &motor);
+void changeMode(MainMode newMode, DistanceSensor &sensorA, DistanceSensor &sensorB);
 
 // ## 変数定義(ユーザー変更可能エリア)
 SteppingMotorConf motorConf = {
@@ -526,14 +528,13 @@ MainMode lastMode;
 int usingSensor = 0; // 0:A, 1:B
 
 // ## 関数定義
-void changeMode(MainMode newMode, SteppingMotor &motor, DistanceSensor &sensorA, DistanceSensor &sensorB)
+void changeMode(MainMode newMode, DistanceSensor &sensorA, DistanceSensor &sensorB)
 
 {
   switch (newMode)
   {
   case Open:
     openCount = openCountLimit_ms;
-    motor.freeStop();
     sensorA.led(false);
     sensorB.led(false);
     break;
@@ -542,7 +543,6 @@ void changeMode(MainMode newMode, SteppingMotor &motor, DistanceSensor &sensorA,
     sensorB.led(true);
     break;
   case Close:
-    motor.freeStop();
     sensorA.led(false);
     sensorB.led(false);
     break;
@@ -617,7 +617,7 @@ void loop()
       Serial.println("distanceDetect:" + String(result));
       if (mode != Open)
       {
-        changeMode(Opening, motor, distanceA, distanceB);
+        changeMode(Opening, distanceA, distanceB);
       }
       else
       {
@@ -636,7 +636,7 @@ void loop()
       bool isEnd = motor.stepWithLimit(SteppingMotor::Front);
       if (isEnd)
       {
-        changeMode(Open, motor, distanceA, distanceB);
+        changeMode(Open, distanceA, distanceB);
       }
     }
     break;
@@ -647,7 +647,7 @@ void loop()
       bool isEnd = motor.stepWithLimit(SteppingMotor::Back);
       if (isEnd)
       {
-        changeMode(Close, motor, distanceA, distanceB);
+        changeMode(Close, distanceA, distanceB);
       }
     }
     break;
@@ -658,7 +658,7 @@ void loop()
       openCount -= 1;
       if (openCount == 0)
       {
-        changeMode(Closing, motor, distanceA, distanceB);
+        changeMode(Closing, distanceA, distanceB);
       }
     }
     break;
@@ -692,11 +692,11 @@ void loop()
     if (manual.isManualMode() && mode != Manual)
     {
       lastMode = mode;
-      changeMode(Manual, motor, distanceA, distanceB);
+      changeMode(Manual, distanceA, distanceB);
     }
     else if (!manual.isManualMode() && mode == Manual)
     {
-      changeMode(lastMode, motor, distanceA, distanceB);
+      changeMode(lastMode, distanceA, distanceB);
     }
   }
 }
