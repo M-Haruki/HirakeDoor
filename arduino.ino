@@ -5,7 +5,9 @@ struct SteppingMotorConf
   int pinA2;
   int pinB1;
   int pinB2;
-  int doorPositionLimit;
+  float doorPositionLimit;
+  float frontStep;
+  float backStep;
 };
 
 class SteppingMotor
@@ -16,8 +18,10 @@ private:
   int pinA2;
   int pinB1;
   int pinB2;
-  int doorPosition = 0;
-  int doorPositionLimit;
+  float doorPosition = 0;
+  float doorPositionLimit;
+  float frontStep;
+  float backStep;
 
   void io(int pin1, int pin2, int state)
   {
@@ -62,15 +66,27 @@ public:
     pinMode(pinB1, OUTPUT);
     pinMode(pinB2, OUTPUT);
     doorPositionLimit = conf.doorPositionLimit;
+    frontStep = conf.frontStep;
+    backStep = conf.backStep;
   }
 
   bool stepWithLimit(SteppingMotor::Direction direction) // スコープ指定がないとコンパイルエラーになる
   {
+    // 超過した値を修正
+    if (doorPosition > doorPositionLimit)
+    {
+      doorPosition = doorPositionLimit;
+    }
+    else if (doorPosition < 0)
+    {
+      doorPosition = 0;
+    }
+    // モーター動作と位置を加算
     if (direction == Front && doorPosition < doorPositionLimit)
     {
       step(Front);
-      doorPosition += 1;
-      if (doorPosition == doorPositionLimit)
+      doorPosition += frontStep;
+      if (doorPosition >= doorPositionLimit)
       {
         return true;
       }
@@ -82,8 +98,8 @@ public:
     else if (direction == Back && doorPosition > 0)
     {
       step(Back);
-      doorPosition -= 1;
-      if (doorPosition == 0)
+      doorPosition += backStep;
+      if (doorPosition <= 0)
       {
         return true;
       }
@@ -164,6 +180,7 @@ struct DistanceSensorConf
 {
   int pinTrig;
   int pinEcho;
+  int pinLed;
   int sampleTimes;
   float sampleTolerance;
 };
@@ -173,6 +190,7 @@ class DistanceSensor
 private:
   int pinTrig;
   int pinEcho;
+  int pinLed;
 
   int triggerCount = 0; // 0,1,2
   unsigned long triggerTime_us = 0;
@@ -313,10 +331,25 @@ public:
   {
     pinTrig = conf.pinTrig;
     pinEcho = conf.pinEcho;
+    pinLed = conf.pinLed;
     pinMode(pinTrig, OUTPUT);
     pinMode(pinEcho, INPUT);
+    pinMode(pinLed, OUTPUT);
     sampleTimes = conf.sampleTimes;
     sampleTolerance = conf.sampleTolerance;
+  }
+
+  void led(bool status)
+  {
+    switch (status)
+    {
+    case true:
+      digitalWrite(pinLed, HIGH);
+      break;
+    case false:
+      digitalWrite(pinLed, LOW);
+      break;
+    }
   }
 
   void clock()
@@ -445,21 +478,26 @@ void changeMode(MainMode newMode, SteppingMotor &motor);
 
 // ## 変数定義(ユーザー変更可能エリア)
 SteppingMotorConf motorConf = {
+    // 17, 14, 15, 16, 1600
     .pinA1 = 17,
     .pinA2 = 14,
     .pinB1 = 15,
     .pinB2 = 16,
-    .doorPositionLimit = 1600, // ドア全開位置の1/4ステップ数
+    .doorPositionLimit = 1450, // ドア全開位置の1/4ステップ数
+    .frontStep = 1,
+    .backStep = -1.05,
 };
 DistanceSensorConf distanceAConf = {
     .pinTrig = 2,
     .pinEcho = 3,
+    .pinLed = 4,
     .sampleTimes = 10,       // 1度の距離算出のためのセンサー測定回数
     .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
 };
 DistanceSensorConf distanceBConf = {
     .pinTrig = 8,
     .pinEcho = 9,
+    .pinLed = 10,
     .sampleTimes = 10,       // 1度の距離算出のためのセンサー測定回数
     .sampleTolerance = 0.15, // 外れ値判定用の許容範囲(中央値に対する割合)
 };
@@ -469,8 +507,9 @@ ManualControlConf manualConf = {
 };
 constexpr unsigned long sensorMeasureInterval_us = 50000; // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
 constexpr unsigned int detectDistanceMin_cm = 5;          // センサー検出距離下限(cm)
-constexpr unsigned int detectDistanceMax_cm = 50;         // センサー検出距離上限(cm)
-constexpr unsigned long motorStepDuration_us = 6000;      // モーター1/4ステップ間隔(μs)
+constexpr unsigned int detectDistanceMax_cm = 70;         // センサー検出距離上限(cm)
+constexpr unsigned long motorStepDurationFront_us = 5500; // 開く時のモーター1/4ステップ間隔(μs)
+constexpr unsigned long motorStepDurationBack_us = 5500;  // 閉じる時のモーター1/4ステップ間隔(μs)
 constexpr unsigned long openCountLimit_ms = 1000;         // ドア全開時間(ms)
 bool enableManualMode = true;                             // マニュアル制御モード有効フラグ
 
@@ -487,16 +526,29 @@ MainMode lastMode;
 int usingSensor = 0; // 0:A, 1:B
 
 // ## 関数定義
-void changeMode(MainMode newMode, SteppingMotor &motor)
+void changeMode(MainMode newMode, SteppingMotor &motor, DistanceSensor &sensorA, DistanceSensor &sensorB)
+
 {
   switch (newMode)
   {
   case Open:
     openCount = openCountLimit_ms;
     motor.freeStop();
+    sensorA.led(false);
+    sensorB.led(false);
+    break;
+  case Opening:
+    sensorA.led(true);
+    sensorB.led(true);
     break;
   case Close:
     motor.freeStop();
+    sensorA.led(false);
+    sensorB.led(false);
+    break;
+  case Closing:
+    sensorA.led(true);
+    sensorB.led(true);
     break;
   }
   mode = newMode;
@@ -526,12 +578,13 @@ void setup()
   Serial.begin(9600);
   delay(1000);
   Serial.println("--Initialized--");
-  motor.powerStop();
+  motor.freeStop();
 }
 
 // ## Arduino標準ループ処理
 void loop()
 {
+
   unsigned long now_us = micros();
   distanceA.clock();
   distanceB.clock();
@@ -564,7 +617,7 @@ void loop()
       Serial.println("distanceDetect:" + String(result));
       if (mode != Open)
       {
-        changeMode(Opening, motor);
+        changeMode(Opening, motor, distanceA, distanceB);
       }
       else
       {
@@ -576,25 +629,25 @@ void loop()
   switch (mode)
   {
   case Opening:
-    if (now_us - lastStepTime_us >= motorStepDuration_us)
+    if (now_us - lastStepTime_us >= motorStepDurationFront_us)
     {
       // 実行頻度が高いため、ここにSerial.println()を入れると距離センサー系の機能がうまく動かない
       lastStepTime_us = now_us;
       bool isEnd = motor.stepWithLimit(SteppingMotor::Front);
       if (isEnd)
       {
-        changeMode(Open, motor);
+        changeMode(Open, motor, distanceA, distanceB);
       }
     }
     break;
   case Closing:
-    if (now_us - lastStepTime_us >= motorStepDuration_us)
+    if (now_us - lastStepTime_us >= motorStepDurationBack_us)
     {
       lastStepTime_us = now_us;
       bool isEnd = motor.stepWithLimit(SteppingMotor::Back);
       if (isEnd)
       {
-        changeMode(Close, motor);
+        changeMode(Close, motor, distanceA, distanceB);
       }
     }
     break;
@@ -605,27 +658,31 @@ void loop()
       openCount -= 1;
       if (openCount == 0)
       {
-        changeMode(Closing, motor);
+        changeMode(Closing, motor, distanceA, distanceB);
       }
     }
     break;
   case Manual:
-    if (now_us - lastStepTime_us >= motorStepDuration_us)
+    ManualControl::Status status = manual.status();
+    switch (status)
     {
-      lastStepTime_us = now_us;
-      ManualControl::Status status = manual.status();
-      switch (status)
+    case ManualControl::Front:
+      if (now_us - lastStepTime_us >= motorStepDurationFront_us)
       {
-      case ManualControl::Front:
+        lastStepTime_us = now_us;
         motor.step(SteppingMotor::Front);
-        break;
-      case ManualControl::Back:
-        motor.step(SteppingMotor::Back);
-        break;
-      case ManualControl::Stop:
-        motor.powerStop();
-        break;
       }
+      break;
+    case ManualControl::Back:
+      if (now_us - lastStepTime_us >= motorStepDurationBack_us)
+      {
+        lastStepTime_us = now_us;
+        motor.step(SteppingMotor::Back);
+      }
+      break;
+    case ManualControl::Stop:
+      motor.powerStop();
+      break;
     }
     break;
   }
@@ -635,11 +692,11 @@ void loop()
     if (manual.isManualMode() && mode != Manual)
     {
       lastMode = mode;
-      changeMode(Manual, motor);
+      changeMode(Manual, motor, distanceA, distanceB);
     }
     else if (!manual.isManualMode() && mode == Manual)
     {
-      changeMode(lastMode, motor);
+      changeMode(lastMode, motor, distanceA, distanceB);
     }
   }
 }
