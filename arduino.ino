@@ -176,6 +176,11 @@ public:
   {
     move(0, 0);
   }
+
+  void resetDoorPosition()
+  {
+    doorPosition = 0;
+  }
 };
 
 struct DistanceSensorConf
@@ -496,29 +501,30 @@ DistanceSensorConf distanceAConf = {
     .pinTrig = 2,
     .pinEcho = 3,
     .pinLed = 4,
-    .sampleTimes = 10,          // 1度の距離算出のためのセンサー測定回数
-    .sampleTolerance = 0.15,    // 外れ値判定用の許容範囲(中央値に対する割合)
-    .ledOnDuration_us = 100000, // LED点灯時間(μs)
+    .sampleTimes = 10,           // 1度の距離算出のためのセンサー測定回数
+    .sampleTolerance = 0.10,     // 外れ値判定用の許容範囲(中央値に対する割合)
+    .ledOnDuration_us = 1000000, // LED点灯時間(μs)
 };
 DistanceSensorConf distanceBConf = {
     .pinTrig = 8,
     .pinEcho = 9,
     .pinLed = 10,
-    .sampleTimes = 10,          // 1度の距離算出のためのセンサー測定回数
-    .sampleTolerance = 0.15,    // 外れ値判定用の許容範囲(中央値に対する割合)
-    .ledOnDuration_us = 100000, // LED点灯時間(μs)
+    .sampleTimes = 10,           // 1度の距離算出のためのセンサー測定回数
+    .sampleTolerance = 0.10,     // 外れ値判定用の許容範囲(中央値に対する割合)
+    .ledOnDuration_us = 1000000, // LED点灯時間(μs)
 };
 ManualControlConf manualConf = {
     .pinA = 11,
     .pinB = 12,
 };
-constexpr unsigned long sensorMeasureInterval_us = 50000; // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
-constexpr unsigned int detectDistanceMin_cm = 5;          // センサー検出距離下限(cm)
-constexpr unsigned int detectDistanceMax_cm = 70;         // センサー検出距離上限(cm)
-constexpr unsigned long motorStepDurationFront_us = 5500; // 開く時のモーター1/4ステップ間隔(μs)
-constexpr unsigned long motorStepDurationBack_us = 5500;  // 閉じる時のモーター1/4ステップ間隔(μs)
-constexpr unsigned long openCountLimit_ms = 1000;         // ドア全開時間(ms)
-bool enableManualMode = true;                             // マニュアル制御モード有効フラグ
+constexpr unsigned long sensorMeasureInterval_us = 50000;       // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
+constexpr unsigned int detectDistanceMin_cm = 5;                // センサー検出距離下限(cm)
+constexpr unsigned int detectDistanceMax_cm = 60;               // センサー検出距離上限(cm)
+constexpr unsigned long motorStepDurationFront_us = 5750;       // 開く時のモーター1/4ステップ間隔(μs)
+constexpr unsigned long motorStepDurationBack_us = 5750;        // 閉じる時のモーター1/4ステップ間隔(μs)
+constexpr unsigned long motorStepDurationMaintenance_us = 7000; // メンテナンス時のモーター1/4ステップ間隔(μs)
+constexpr unsigned long openCountLimit_ms = 1000;               // ドア全開時間(ms)
+bool enableManualMode = true;                                   // マニュアル制御モード有効フラグ
 
 // ## インスタンス生成,グローバル変数定義
 SteppingMotor motor(motorConf);
@@ -665,14 +671,14 @@ void loop()
     switch (status)
     {
     case ManualControl::Front:
-      if (now_us - lastStepTime_us >= motorStepDurationFront_us)
+      if (now_us - lastStepTime_us >= motorStepDurationMaintenance_us)
       {
         lastStepTime_us = now_us;
         motor.step(SteppingMotor::Front);
       }
       break;
     case ManualControl::Back:
-      if (now_us - lastStepTime_us >= motorStepDurationBack_us)
+      if (now_us - lastStepTime_us >= motorStepDurationMaintenance_us)
       {
         lastStepTime_us = now_us;
         motor.step(SteppingMotor::Back);
@@ -693,6 +699,7 @@ void loop()
     }
     else if (!manual.isManualMode() && mode == Manual)
     {
+      motor.resetDoorPosition();
       changeMode(Close);
     }
   }
