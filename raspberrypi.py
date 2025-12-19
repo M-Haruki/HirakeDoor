@@ -112,7 +112,7 @@ async def ble_peripheral_loop():
         try:
             async with await aioble.advertise(  # BLEアドバタイズを開始
                 250_000,  # アドバタイズ間隔（マイクロ秒）
-                name="HirakeDoma_RPiPico",  # アドバタイズ名（BLE接続デバイス名）
+                name="HirakeDoor_RPiPico",  # アドバタイズ名（BLE接続デバイス名）
                 services=[UART_SERVICE_UUID],  # サービスUUIDを指定
             ) as connection:  # 接続待機
                 print("Connecting:", connection.device)  # 接続されたデバイス情報を表示
