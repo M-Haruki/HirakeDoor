@@ -7,7 +7,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HirakeDoor WebConsole</title>
-  <meta name="description" content="ひらけ土間システムのマニュアル制御インターフェース">
+  <meta name="description" content="ひらけドアシステムのマニュアル制御インターフェース">
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -91,7 +91,7 @@
         updateStatus('検索中');
         try {
           const device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [UUID.SERVICE] }, { name: 'HirakeDoma_RPiPico' }],
+            filters: [{ services: [UUID.SERVICE] }, { name: 'HirakeDoor_RPiPico' }],
             optionalServices: [UUID.SERVICE]
           });
           this.device = device;
