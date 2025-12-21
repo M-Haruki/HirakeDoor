@@ -1,4 +1,4 @@
-# HirakeDoor
+# ひらけドア (HirakeDoor)
 
 教室ドアの自動化プロジェクト
 
