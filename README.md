@@ -52,6 +52,8 @@ Webインターフェースを用いて、BluetoothLowEnergy(BLE)経由で、手
 ### プロジェクトメンバー
 - [M_Haruki](https://github.com/M-Haruki)
 - bearkou
+- mochi_kumo
+- Mr.Chi
 
 ### Special Thanks
 
