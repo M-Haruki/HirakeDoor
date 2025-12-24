@@ -1,6 +1,7 @@
 # ひらけドア (HirakeDoor)
 
-教室ドアの自動化プロジェクト
+教室ドアの自動化プロジェクト  
+[PV映像(YouTube)](https://youtu.be/fkIhEhKD6Qc)
 
 ## 概要
 
