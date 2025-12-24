@@ -17,6 +17,10 @@ Webインターフェースを用いて、BluetoothLowEnergy(BLE)経由で、手
 第一段階として、扉におもりを取り付け、開けたら勝手に閉まるようなドアクローザー機構を作成。  
 概ね好評だったものの、開けるのが重くなるなどの問題もあり、第二段階としてセンサーやモーターなどを用いた自動ドア化を行った。
 
+## 安全対策
+
+扉を閉じる力はおもりの重力のみを使うことで、挟まれた際のリスクを低減し、扉を手動でも開けられるようにした。
+
 ## ソフトウェア構成
 
 - [C++ (Arduino Nano Every)](software/arduino/hirake_door.ino)
@@ -42,3 +46,13 @@ Webインターフェースを用いて、BluetoothLowEnergy(BLE)経由で、手
 ### 回路図
 
 ![回路図](hardware/diagram.svg)
+
+## クレジット
+
+### プロジェクトメンバー
+- [M_Haruki](https://github.com/M-Haruki)
+- bearkou
+
+### Special Thanks
+
+- 3D(78th)
