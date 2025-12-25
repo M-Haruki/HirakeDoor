@@ -22,6 +22,13 @@ Webインターフェースを用いて、BluetoothLowEnergy(BLE)経由で、手
 
 扉を閉じる力はおもりの重力のみを使うことで、挟まれた際のリスクを低減し、扉を手動でも開けられるようにした。
 
+## ギャラリー
+
+||||
+|:--:|:--:|:--:|
+|![appearance](photos/appearance.jpg)|![table-side](photos/table-side.jpg)|![table-top](photos/table-top.jpg)|
+|![board](photos/board.jpg)|![sensor](photos/sensor.jpg)|![web](photos/web.jpg)|
+
 ## ソフトウェア構成
 
 - [C++ (Arduino Nano Every)](software/arduino/hirake_door.ino)
@@ -55,6 +62,7 @@ Webインターフェースを用いて、BluetoothLowEnergy(BLE)経由で、手
 ## クレジット
 
 ### プロジェクトメンバー
+
 - M_Haruki
 - bearkou
 - mochi_kumo
