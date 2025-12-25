@@ -137,8 +137,6 @@ async def ble_peripheral_loop():
         except Exception as e:
             print("Advertise:", repr(e))
 
-        out_a.value(0)
-        out_b.value(0)
         await asyncio.sleep_ms(200)
 
 
