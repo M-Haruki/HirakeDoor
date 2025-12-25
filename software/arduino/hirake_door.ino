@@ -495,7 +495,7 @@ SteppingMotorConf motorConf = {
     .pinB2 = 16,
     .doorPositionLimit = 1450, // ドア全開位置の1/4ステップ数
     .frontStep = 1,
-    .backStep = -1.05,
+    .backStep = -1,
 };
 DistanceSensorConf distanceAConf = {
     .pinTrig = 2,
@@ -519,9 +519,9 @@ ManualControlConf manualConf = {
 };
 constexpr unsigned long sensorMeasureInterval_us = 50000;       // センサー測定間隔(μs) 小さすぎると測定に失敗しやすい
 constexpr unsigned int detectDistanceMin_cm = 5;                // センサー検出距離下限(cm)
-constexpr unsigned int detectDistanceMax_cm = 60;               // センサー検出距離上限(cm)
-constexpr unsigned long motorStepDurationFront_us = 5750;       // 開く時のモーター1/4ステップ間隔(μs)
-constexpr unsigned long motorStepDurationBack_us = 5750;        // 閉じる時のモーター1/4ステップ間隔(μs)
+constexpr unsigned int detectDistanceMax_cm = 55;               // センサー検出距離上限(cm)
+constexpr unsigned long motorStepDurationFront_us = 3750;       // 開く時のモーター1/4ステップ間隔(μs)
+constexpr unsigned long motorStepDurationBack_us = 2650;        // 閉じる時のモーター1/4ステップ間隔(μs)
 constexpr unsigned long motorStepDurationMaintenance_us = 7000; // メンテナンス時のモーター1/4ステップ間隔(μs)
 constexpr unsigned long openCountLimit_ms = 1000;               // ドア全開時間(ms)
 bool enableManualMode = true;                                   // マニュアル制御モード有効フラグ
@@ -621,6 +621,15 @@ void loop()
       Serial.println("distanceDetect:" + String(result));
       if (mode != Open)
       {
+        // temp
+        if (mode == Closing)
+        {
+          Serial.println("temp");
+          motor.hardStop();
+          delay(1200);
+          // delayMicroseconds(500000);
+        }
+        //
         changeMode(Opening);
       }
       else
@@ -660,6 +669,7 @@ void loop()
     {
       lastStepTime_us = now_us;
       openCount -= 1;
+      motor.hardStop();
       if (openCount == 0)
       {
         changeMode(Closing);
