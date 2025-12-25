@@ -30,6 +30,10 @@ Webインターフェースを用いて、BluetoothLowEnergy(BLE)経由で、手
 
 ## ハードウェア構成
 
+### 概略図
+
+![概略図](hardware/illustration.svg)
+
 ### 主要パーツ
 
 - マイコン
@@ -46,7 +50,7 @@ Webインターフェースを用いて、BluetoothLowEnergy(BLE)経由で、手
 
 ### 回路図
 
-![回路図](hardware/diagram.svg)
+![回路図](hardware/schematic.svg)
 
 ## クレジット
 
